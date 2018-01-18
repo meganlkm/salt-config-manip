@@ -13,12 +13,16 @@ from copy import deepcopy
 from datetime import datetime
 
 import yaml
+from salt.exceptions import CommandExecutionError
 from salt.utils import yamlloader
 
 
 def __write_config(config_path, data):
-    stream = file(config_path, 'w')
-    yaml.dump(data, stream, default_flow_style=False)
+    try:
+        stream = file(config_path, 'w')
+        yaml.dump(data, stream, default_flow_style=False)
+    except Exception as e:
+        raise CommandExecutionError('Error: %s' % str(e))
 
 
 def __get_data(source):
@@ -46,7 +50,7 @@ def __compare_and_merge(src, dest):
 
 
 def merge(origin, source, backup_original=False):
-    response = {}
+    response = {'status': 'up to date', 'changed': False}
     source_data = __get_data(source)
 
     if os.path.exists(origin):
@@ -56,15 +60,18 @@ def merge(origin, source, backup_original=False):
         if new_config != source_data:
             new_config = __compare_and_merge(source_data, new_config)
 
-            changed = origin_data != new_config
-            if changed:
+            if origin_data != new_config:
                 if backup_original:
                     response['backup_path'] = '-'.join([origin, datetime.utcnow().strftime('%Y%m%dT%H%M%S')])
                     __write_config(response['backup_path'], origin_data)
                 __write_config(origin, new_config)
-            response['updated'] = changed
+                response['status'] = 'updated'
+                response['changed'] = True
     else:
         __write_config(origin, source_data)
-        response['created'] = os.path.exists(origin)
+        if not os.path.exists(origin):
+            raise CommandExecutionError('Error: config file not created')
+        response['status'] = 'created'
+        response['changed'] = True
 
     return response
