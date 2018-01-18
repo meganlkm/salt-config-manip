@@ -7,11 +7,21 @@ merge_reactor_config:
     - origin: /etc/salt/master.d/reactor.conf
     - source: /srv/salt/mystate/files/reactor.conf
 """
-import filecmp
 import os
 import yaml
 from collections import Mapping
-from shutil import copyfile
+
+from salt.utils import yamlloader
+
+
+def __write_config(config_path, data):
+    stream = file(config_path, 'w')
+    yaml.dump(data, stream, default_flow_style=False)
+
+
+def __get_data(source):
+    data = __salt__['cp.get_file_str'](source)
+    return yamlloader.SaltYamlSafeLoader(data).get_data()
 
 
 def __update_list(src, base, changed=False):
@@ -24,11 +34,11 @@ def __update_list(src, base, changed=False):
 
 def merge(origin, source):
     response = {}
-    if os.path.exists(origin):
-        if not filecmp.cmp(origin, source):
-            origin_data = yaml.load(open(origin))
-            source_data = yaml.load(open(source))
+    source_data = __get_data(source)
 
+    if os.path.exists(origin):
+        origin_data = __get_data(origin)
+        if origin_data != source_data:
             changed = False
             for key, value in source_data.iteritems():
                 if value != origin_data.get(key):
@@ -42,11 +52,10 @@ def merge(origin, source):
                         changed = True
 
             if changed:
-                stream = file(origin, 'w')
-                yaml.dump(origin_data, stream, default_flow_style=False)
+                __write_config(origin, origin_data)
             response['updated'] = changed
     else:
-        copyfile(source, origin)
+        __write_config(origin, source_data)
         response['created'] = os.path.exists(origin)
 
     return response
