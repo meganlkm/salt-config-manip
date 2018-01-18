@@ -1,12 +1,3 @@
-"""
-example sls:
-
-merge_reactor_config:
-  module.run:
-    - name: config_manip.merge
-    - origin: /etc/salt/master.d/reactor.conf
-    - source: /srv/salt/mystate/files/reactor.conf
-"""
 import os
 from collections import Mapping
 from copy import deepcopy
