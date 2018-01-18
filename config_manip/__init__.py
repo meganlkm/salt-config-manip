@@ -8,9 +8,10 @@ merge_reactor_config:
     - source: /srv/salt/mystate/files/reactor.conf
 """
 import os
-import yaml
 from collections import Mapping
+from datetime import datetime
 
+import yaml
 from salt.utils import yamlloader
 
 
@@ -32,12 +33,17 @@ def __update_list(src, base, changed=False):
     return base, changed
 
 
-def merge(origin, source):
+def merge(origin, source, backup_original=False):
     response = {}
     source_data = __get_data(source)
 
     if os.path.exists(origin):
         origin_data = __get_data(origin)
+
+        if backup_original:
+            response['backup_path'] = '-'.join([origin, datetime.utcnow().strftime('%Y%m%dT%H%M%S')])
+            __write_config(response['backup_path'], origin_data)
+
         if origin_data != source_data:
             changed = False
             for key, value in source_data.iteritems():
